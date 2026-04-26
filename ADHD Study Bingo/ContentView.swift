@@ -815,7 +815,7 @@ struct ContentView: View {
             }
 
             if hasBingoLine {
-                Text("Bingo! You completed a line.")
+                Text("Bingo! You completed \(bingoLineCount) \(bingoLineCount == 1 ? "line" : "lines").")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.green)
                     .transition(.scale.combined(with: .opacity))
