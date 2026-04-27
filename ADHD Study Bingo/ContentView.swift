@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 struct StudyTask: Identifiable {
     let id: UUID
@@ -278,36 +281,119 @@ struct TaskBarsView: View {
     }
 }
 
+#if os(iOS)
+private final class ConfettiEmitterContainerView: UIView {
+    let emitterLayer = CAEmitterLayer()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        backgroundColor = .clear
+
+        emitterLayer.emitterShape = .rectangle
+        emitterLayer.emitterPosition = .zero
+        emitterLayer.emitterSize = .zero
+        emitterLayer.birthRate = 0
+        layer.addSublayer(emitterLayer)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        emitterLayer.frame = bounds
+        emitterLayer.emitterPosition = CGPoint(x: bounds.midX, y: bounds.midY)
+        emitterLayer.emitterSize = bounds.size
+    }
+
+    func fireBurst() {
+        emitterLayer.beginTime = CACurrentMediaTime()
+        emitterLayer.birthRate = 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { [weak self] in
+            self?.emitterLayer.birthRate = 0
+        }
+    }
+}
+
+private struct ConfettiEmitterView: UIViewRepresentable {
+    var burstID: Int
+
+    final class Coordinator {
+        var lastBurstID: Int = -1
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIView(context: Context) -> ConfettiEmitterContainerView {
+        let view = ConfettiEmitterContainerView()
+        view.emitterLayer.emitterCells = makeCells()
+        return view
+    }
+
+    func updateUIView(_ uiView: ConfettiEmitterContainerView, context: Context) {
+        if context.coordinator.lastBurstID != burstID {
+            context.coordinator.lastBurstID = burstID
+            if burstID > 0 {
+                uiView.fireBurst()
+            }
+        }
+    }
+
+    private func makeCells() -> [CAEmitterCell] {
+        let colors: [UIColor] = [
+            UIColor.systemGreen.withAlphaComponent(0.75),
+            UIColor.systemYellow.withAlphaComponent(0.85),
+            UIColor.systemGray.withAlphaComponent(0.70)
+        ]
+
+        return colors.map { color in
+            let cell = CAEmitterCell()
+            cell.contents = rectangleImage(color: color).cgImage
+            cell.birthRate = 20
+            cell.lifetime = 2.1
+            cell.lifetimeRange = 0.5
+            cell.velocity = 180
+            cell.velocityRange = 80
+            cell.yAcceleration = 220
+            cell.emissionLongitude = .pi / 2
+            cell.emissionRange = .pi / 5
+            cell.spin = 2.5
+            cell.spinRange = 2.0
+            cell.scale = 1
+            return cell
+        }
+    }
+
+    private func rectangleImage(color: UIColor) -> UIImage {
+        let size = CGSize(width: 8, height: 12)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { ctx in
+            color.setFill()
+            ctx.cgContext.fill(CGRect(origin: .zero, size: size))
+        }
+    }
+}
+#endif
+
 struct BingoCelebrationOverlay: View {
     @Binding var showPopup: Bool
-    @Binding var confettiDrop: Bool
+    let confettiBurstID: Int
     let lineCount: Int
-
-    private let confettiColors: [Color] = [
-        Color.green.opacity(0.70),
-        Color.yellow.opacity(0.85),
-        Color.gray.opacity(0.60)
-    ]
 
     var body: some View {
         ZStack {
             Color.black.opacity(0.12)
                 .ignoresSafeArea()
 
-            ForEach(0..<24, id: \.self) { index in
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(confettiColors[index % confettiColors.count])
-                    .frame(width: 8, height: 14)
-                    .rotationEffect(.degrees(Double((index * 23) % 70)))
-                    .offset(
-                        x: CGFloat((index % 8) - 4) * 48 + CGFloat((index % 3) * 6),
-                        y: confettiDrop ? CGFloat(80 + (index / 8) * 140) : -220
-                    )
-                    .animation(
-                        .easeOut(duration: 0.85).delay(Double(index) * 0.02),
-                        value: confettiDrop
-                    )
-            }
+            #if os(iOS)
+            ConfettiEmitterView(burstID: confettiBurstID)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+            #endif
 
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(Color.white.opacity(0.96))
@@ -336,10 +422,17 @@ struct BingoCelebrationOverlay: View {
 }
 
 struct ContentView: View {
+    //Test Data
     @State private var tasks: [StudyTask] = [
         StudyTask(title: "CS Project", totalMinutes: 300, completedMinutes: 60, deadlineDate: Calendar.current.date(byAdding: .day, value: 4, to: Date()) ?? Date()),
         StudyTask(title: "History Essay", totalMinutes: 180, completedMinutes: 30, deadlineDate: Calendar.current.date(byAdding: .day, value: 2, to: Date()) ?? Date()),
-        StudyTask(title: "Math Review", totalMinutes: 240, completedMinutes: 80, deadlineDate: Calendar.current.date(byAdding: .day, value: 6, to: Date()) ?? Date())
+        StudyTask(title: "Math Review", totalMinutes: 240, completedMinutes: 80, deadlineDate: Calendar.current.date(byAdding: .day, value: 6, to: Date()) ?? Date()),
+        StudyTask(title: "SAT Review", totalMinutes: 260, completedMinutes: 40, deadlineDate: Calendar.current.date(byAdding: .day, value: 5, to: Date()) ?? Date()),
+        StudyTask(title: "DP Practice", totalMinutes: 200, completedMinutes: 20, deadlineDate: Calendar.current.date(byAdding: .day, value: 3, to: Date()) ?? Date()),
+        StudyTask(title: "Data Preview", totalMinutes: 160, completedMinutes: 10, deadlineDate: Calendar.current.date(byAdding: .day, value: 4, to: Date()) ?? Date()),
+        StudyTask(title: "Physics Review", totalMinutes: 220, completedMinutes: 50, deadlineDate: Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()),
+        StudyTask(title: "English Workbook", totalMinutes: 190, completedMinutes: 35, deadlineDate: Calendar.current.date(byAdding: .day, value: 5, to: Date()) ?? Date()),
+        StudyTask(title: "Codeforces", totalMinutes: 170, completedMinutes: 25, deadlineDate: Calendar.current.date(byAdding: .day, value: 6, to: Date()) ?? Date())
     ]
 
     @State private var dailyAssignmentsByDate: [String: [DailyTaskAssignment]] = [:]
@@ -347,7 +440,7 @@ struct ContentView: View {
     @State private var hasBingoLine: Bool = false
     @State private var bingoLineCount: Int = 0
     @State private var showBingoPopup: Bool = false
-    @State private var confettiDrop: Bool = false
+    @State private var confettiBurstID: Int = 0
     @State private var bingoFeedbackText: String = "⚡ Keep the rhythm! Tap a tile to check in."
     @State private var feedbackTick: Int = 0
     @State private var completionHistory: [String: [DailyCompletionRecord]] = [:]
@@ -386,8 +479,8 @@ struct ContentView: View {
 
     private var sortedHistoryDayKeys: [String] {
         completionHistory.keys.sorted { lhs, rhs in
-            guard let leftDate = historyDayFormatter.date(from: lhs),
-                  let rightDate = historyDayFormatter.date(from: rhs) else {
+            guard let leftDate = Self.historyDayFormatter.date(from: lhs),
+                  let rightDate = Self.historyDayFormatter.date(from: rhs) else {
                 return lhs > rhs
             }
             return leftDate > rightDate
@@ -402,29 +495,29 @@ struct ContentView: View {
         return task.title
     }
 
-    private var dateFormatter: DateFormatter {
+    private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy/MM/dd"
         return formatter
-    }
+    }()
 
-    private var chineseDateFormatter: DateFormatter {
+    private static let chineseDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM dd, yyyy"
         return formatter
-    }
+    }()
 
-    private var historyDayFormatter: DateFormatter {
+    private static let historyDayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy/MM/dd"
         return formatter
-    }
+    }()
 
-    private var historyTimeFormatter: DateFormatter {
+    private static let historyTimeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         return formatter
-    }
+    }()
 
     private var selectedDayKey: String {
         historyDayKey(for: selectedDate)
@@ -528,7 +621,7 @@ struct ContentView: View {
                         .buttonStyle(.bordered)
 
                         VStack(spacing: 2) {
-                            Text(chineseDateFormatter.string(from: selectedDate))
+                            Text(Self.chineseDateFormatter.string(from: selectedDate))
                                 .font(.headline)
                             if isViewingToday == false {
                                 Button("Back to Today") {
@@ -572,13 +665,13 @@ struct ContentView: View {
                 .ignoresSafeArea()
             )
 
-            if showBingoPopup {
-                BingoCelebrationOverlay(
-                    showPopup: $showBingoPopup,
-                    confettiDrop: $confettiDrop,
-                    lineCount: bingoLineCount
-                )
-            }
+            BingoCelebrationOverlay(
+                showPopup: $showBingoPopup,
+                confettiBurstID: confettiBurstID,
+                lineCount: bingoLineCount
+            )
+            .opacity(showBingoPopup ? 1 : 0)
+            .allowsHitTesting(showBingoPopup)
         }
     }
 
@@ -598,7 +691,7 @@ struct ContentView: View {
                                 Text(task.title)
                                     .font(.headline)
                                 Spacer()
-                                Text("Deadline \(dateFormatter.string(from: task.deadlineDate))")
+                                Text("Deadline \(Self.dateFormatter.string(from: task.deadlineDate))")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -739,7 +832,7 @@ struct ContentView: View {
                                                     .foregroundStyle(.secondary)
                                             }
                                             Spacer()
-                                            Text(historyTimeFormatter.string(from: record.completedAt))
+                                            Text(Self.historyTimeFormatter.string(from: record.completedAt))
                                                 .font(.caption)
                                                 .foregroundStyle(.secondary)
                                         }
@@ -1136,8 +1229,7 @@ struct ContentView: View {
             updated[taskIndex].completedMinutes = min(max(newValue, 0), updated[taskIndex].totalMinutes)
         }
 
-        let recalculated = recalculatePlan(tasks: updated, todayActualMinutes: 0, focusedTaskID: nil)
-        return sortByUrgency(recalculated)
+        return recalculatePlan(tasks: updated, todayActualMinutes: 0, focusedTaskID: nil)
     }
 
     private func removeDailyTask(taskID: UUID) {
@@ -1299,29 +1391,24 @@ struct ContentView: View {
 
         if win == false {
             showBingoPopup = false
-            confettiDrop = false
         }
     }
 
     private func triggerBingoCelebration() {
-        confettiDrop = false
+        confettiBurstID += 1
         withAnimation(.easeOut(duration: 0.18)) {
             showBingoPopup = true
         }
-        withAnimation(.easeOut(duration: 0.95).delay(0.04)) {
-            confettiDrop = true
-        }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.65) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             withAnimation(.easeIn(duration: 0.2)) {
                 showBingoPopup = false
             }
-            confettiDrop = false
         }
     }
 
     private func historyDayKey(for date: Date = Date()) -> String {
-        historyDayFormatter.string(from: date)
+        Self.historyDayFormatter.string(from: date)
     }
 
     private func addCompletionRecord(taskID: UUID, taskTitle: String, minutes: Int, on targetDate: Date) {
