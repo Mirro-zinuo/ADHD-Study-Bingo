@@ -28,3 +28,9 @@ fastlane/screenshots/
 fastlane/test_output/
 
 .derivedData
+
+# Local backups
+local-backups/
+
+# Local backups
+local-backups/
