@@ -255,7 +255,7 @@ final class AppModel {
 
         if canBingo && gainedLines > 0 {
             triggerBingoCelebration()
-        } else if win == false {
+        } else if win == false || !canBingo {
             showBingoPopup = false
         }
     }
