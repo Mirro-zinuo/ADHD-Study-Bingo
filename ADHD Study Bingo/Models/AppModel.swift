@@ -194,7 +194,8 @@ final class AppModel {
 
     func refreshBingoStatus(
         dailyAssignments: [DailyTaskAssignment],
-        actionMessage: String? = nil
+        actionMessage: String? = nil,
+        canBingo: Bool = false
     ) {
         let board = buildBingoBoard(from: dailyAssignments)
         let win = checkBingoWin(board: board)
@@ -252,7 +253,7 @@ final class AppModel {
             ])
         }
 
-        if gainedLines > 0 {
+        if canBingo && gainedLines > 0 {
             triggerBingoCelebration()
         } else if win == false {
             showBingoPopup = false

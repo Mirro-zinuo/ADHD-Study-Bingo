@@ -225,6 +225,6 @@ struct HomePageView: View {
             )
         }
 
-        appModel.refreshBingoStatus(dailyAssignments: dailyAssignments, actionMessage: actionMessage)
+        appModel.refreshBingoStatus(dailyAssignments: dailyAssignments, actionMessage: actionMessage,canBingo: true)
     }
 }
